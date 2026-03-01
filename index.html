@@ -23,18 +23,18 @@
       align-items: center;
       width: 100%;
       max-width: 660px;
-      padding: 36px 20px 40px;
+      padding: 18px 20px 20px;
       gap: 0;
     }
 
     /* Title */
     #venus-title {
-      font-size: clamp(0.65rem, 1.8vw, 0.8rem);
+      font-size: clamp(0.58rem, 1.5vw, 0.72rem);
       font-weight: normal;
       letter-spacing: 0.28em;
       text-transform: uppercase;
       color: #C9A96E;
-      margin-bottom: 28px;
+      margin-bottom: 12px;
       text-align: center;
     }
 
@@ -51,46 +51,36 @@
       text-transform: uppercase;
       color: #C9A96E;
       text-align: center;
-      padding: 80px 0;
+      padding: 60px 0;
       opacity: 0.7;
     }
 
-    /* Date display */
+    /* Date display — single compact line */
     #date-display {
-      margin-top: 28px;
-      text-align: center;
+      margin-top: 12px;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 10px;
       visibility: hidden;
     }
 
-    #date-display .d-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      color: #C9A96E;
-      margin-bottom: 7px;
-    }
-
     #date-value {
-      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+      font-size: clamp(0.75rem, 2vw, 0.88rem);
       font-weight: normal;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
       color: #2C2C2C;
-      line-height: 1.5;
     }
 
     #time-value {
-      font-size: 0.75rem;
-      letter-spacing: 0.12em;
+      font-size: 0.68rem;
+      letter-spacing: 0.08em;
       color: #2C2C2C;
-      opacity: 0.55;
-      margin-top: 3px;
-      min-height: 1.2em;
+      opacity: 0.45;
     }
 
     #live-badge {
-      display: inline-block;
-      margin-top: 10px;
-      font-size: 0.58rem;
+      font-size: 0.55rem;
       letter-spacing: 0.22em;
       text-transform: uppercase;
       color: #C9A96E;
@@ -103,7 +93,7 @@
       align-items: center;
       gap: 14px;
       width: 100%;
-      margin-top: 22px;
+      margin-top: 10px;
       visibility: hidden;
     }
 
@@ -126,8 +116,8 @@
 
     #time-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: #C9A96E;
       box-shadow: 0 0 8px rgba(201,169,110,0.5);
@@ -140,8 +130,8 @@
     }
 
     #time-slider::-moz-range-thumb {
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: #C9A96E;
       border: none;
@@ -157,9 +147,9 @@
       border: 1px solid rgba(201,169,110,0.35);
       color: #2C2C2C;
       font-family: Georgia, serif;
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       letter-spacing: 0.04em;
-      padding: 5px 8px;
+      padding: 4px 7px;
       border-radius: 2px;
       outline: none;
       cursor: pointer;
@@ -168,17 +158,6 @@
 
     #date-picker:focus {
       border-color: rgba(201,169,110,0.7);
-    }
-
-    /* Hint */
-    #hint {
-      margin-top: 12px;
-      font-size: 0.58rem;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #2C2C2C;
-      opacity: 0.3;
-      text-align: center;
     }
   </style>
 </head>
@@ -190,18 +169,15 @@
     <canvas id="venus-canvas" style="display:none"></canvas>
 
     <div id="date-display">
-      <div class="d-label">Venus Position</div>
-      <div id="date-value"></div>
-      <div id="time-value"></div>
-      <div id="live-badge">&#9679;&nbsp;live</div>
+      <span id="date-value"></span>
+      <span id="time-value"></span>
+      <span id="live-badge">&#9679;&nbsp;live</span>
     </div>
 
     <div id="controls">
       <input type="range" id="time-slider" min="0" max="1000" value="500" step="1">
       <input type="date" id="date-picker">
     </div>
-
-    <p id="hint">Drag Venus &middot; use the slider &middot; double-click slider to return to live</p>
   </div>
 
   <script
@@ -215,7 +191,7 @@
 
     // ─── Constants ────────────────────────────────────────────────────────────
     var PATTERN_RADIUS_AU = 1.85;   // max Venus-Earth geocentric distance + margin
-    var CANVAS_PADDING_LP = 26;     // logical-pixel padding inside canvas edge
+    var CANVAS_PADDING_LP = 22;     // logical-pixel padding inside canvas edge
     var FADE_FRACTION     = 0.12;   // fade in/out over 12% of visible points each end
     var WINDOW_HALF_YEARS = 4;      // render ±4 years around currentDate
     var MS_PER_DAY        = 86400000;
@@ -281,8 +257,6 @@
       var pts = S.visiblePts, n = pts.length;
       if (!n) return;
 
-      // Predict where the index will be based on current velocity,
-      // then search ±halfWin indices around that prediction.
       var MARGIN  = 45;
       var halfWin = Math.max(MARGIN, Math.round(Math.abs(S.dragVelocity) * 1.5 + MARGIN));
       var center  = Math.min(n - 1, Math.max(0, Math.round(S.dragIdx + S.dragVelocity)));
@@ -297,7 +271,6 @@
         if (d2 < minD2) { minD2 = d2; bestIdx = i; }
       }
 
-      // Exponential moving average on velocity — smooths direction changes
       S.dragVelocity = S.dragVelocity * 0.4 + (bestIdx - S.dragIdx) * 0.6;
       S.dragIdx      = bestIdx;
 
@@ -349,7 +322,6 @@
       var ctx = oc.getContext('2d');
       var dpr = S.dpr;
 
-      // Cache visible points for drag interaction
       S.visiblePts = visiblePoints(S.currentDate);
       var pts = S.visiblePts;
       var n   = pts.length;
@@ -424,10 +396,8 @@
     function render(ts) {
       S.animId = requestAnimationFrame(render);
 
-      // Pulse phase (independent of date)
       S.pulsePhase = (S.pulsePhase + 0.006) % 1;
 
-      // Live clock sync (at most once per 60 s, skipped while dragging)
       if (S.isLive && !S.isDragging && ts - S.lastLiveSync > 60000) {
         S.currentDate  = new Date();
         S.lastLiveSync = ts;
@@ -436,7 +406,6 @@
         syncPicker(S.currentDate);
       }
 
-      // Rebuild offscreen if window drifted > 30 days
       if (S.offscreenDate &&
           Math.abs(S.currentDate - S.offscreenDate) > 30 * MS_PER_DAY) {
         buildOffscreen();
@@ -447,18 +416,15 @@
       ctx.clearRect(0, 0, S.physW, S.physH);
       if (S.offscreen) ctx.drawImage(S.offscreen, 0, 0);
 
-      // Venus geocentric position
       var v    = Astronomy.GeoVector(Astronomy.Body.Venus, S.currentDate, false);
       var vp   = proj(v.x, v.y);
       var dpr  = S.dpr;
       var sine = Math.sin(S.pulsePhase * Math.PI * 2);
 
-      // Store for hit-testing in mouse/touch handlers
       S.lastVenusPos = { px: vp.px, py: vp.py };
 
       var interacting = S.isHoveringVenus || S.isDragging;
 
-      // ── Outer glow (pulses; brightens on hover/drag) ──
       var glowR = (interacting ? 11 + 4 * sine : 8 + 5 * sine) * dpr;
       var glowA = interacting ? 0.22 + 0.08 * sine : 0.10 + 0.07 * sine;
       var grd   = ctx.createRadialGradient(vp.px, vp.py, 0, vp.px, vp.py, glowR);
@@ -469,7 +435,6 @@
       ctx.fillStyle = grd;
       ctx.fill();
 
-      // ── Interaction ring (visible on hover/drag) ──
       if (interacting) {
         var ringR = (7 + 3 * Math.abs(sine)) * dpr;
         ctx.beginPath();
@@ -479,7 +444,6 @@
         ctx.stroke();
       }
 
-      // ── Inner dot ──
       var dotR = 4.5 * dpr;
       var dotG = ctx.createRadialGradient(
         vp.px - dotR * 0.3, vp.py - dotR * 0.3, 0,
@@ -497,7 +461,7 @@
     function resizeCanvas() {
       var wrap    = document.getElementById('venus-wrap');
       var dpr     = window.devicePixelRatio || 1;
-      var logical = Math.min(wrap.clientWidth - 40, 600);
+      var logical = Math.min(wrap.clientWidth - 40, 420);
       var phys    = Math.round(logical * dpr);
       var canvas  = document.getElementById('venus-canvas');
 
@@ -525,12 +489,12 @@
 
       if (S.isLive) {
         document.getElementById('time-value').textContent =
-          date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+          '· ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
       } else {
         document.getElementById('time-value').textContent = '';
       }
 
-      document.getElementById('live-badge').style.opacity = S.isLive ? '1' : '0.25';
+      document.getElementById('live-badge').style.opacity = S.isLive ? '1' : '0';
     }
 
     // ─── Slider ───────────────────────────────────────────────────────────────
@@ -604,8 +568,6 @@
           S.isDragging = true;
           S.isLive     = false;
           canvas.style.cursor = 'grabbing';
-          // Initialise drag index at Venus's current position in the curve.
-          // Points are daily steps, so index ≈ (currentDate − window start) / 1 day.
           var startMs    = S.visiblePts.length ? S.visiblePts[0].ms : 0;
           S.dragIdx      = Math.round((S.currentDate.getTime() - startMs) / MS_PER_DAY);
           S.dragIdx      = Math.max(0, Math.min(S.visiblePts.length - 1, S.dragIdx));
@@ -620,7 +582,6 @@
           applyDragPos(pos.x, pos.y);
           return;
         }
-        // Hover cursor feedback
         var nowHovering = isNearVenus(pos.x, pos.y);
         if (nowHovering !== S.isHoveringVenus) {
           S.isHoveringVenus   = nowHovering;
@@ -641,7 +602,7 @@
         var pos = getPhysPos(t.clientX, t.clientY);
         var dx  = pos.x - (S.lastVenusPos ? S.lastVenusPos.px : -999);
         var dy  = pos.y - (S.lastVenusPos ? S.lastVenusPos.py : -999);
-        var r   = (HIT_RADIUS_PX + 14) * S.dpr; // larger touch hit target
+        var r   = (HIT_RADIUS_PX + 14) * S.dpr;
         if (dx * dx + dy * dy <= r * r) {
           S.isDragging = true;
           S.isLive     = false;
