@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Venus Rose</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #FAF8F4;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #2C2C2C;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #venus-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 660px;
+      padding: 36px 20px 40px;
+      gap: 0;
+    }
+
+    /* Title */
+    #venus-title {
+      font-size: clamp(0.65rem, 1.8vw, 0.8rem);
+      font-weight: normal;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #C9A96E;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+
+    /* Canvas */
+    #venus-canvas {
+      display: block;
+      border-radius: 50%;
+    }
+
+    /* Loading */
+    #loading-msg {
+      font-size: 0.75rem;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #C9A96E;
+      text-align: center;
+      padding: 80px 0;
+      opacity: 0.7;
+    }
+
+    /* Date display */
+    #date-display {
+      margin-top: 28px;
+      text-align: center;
+      visibility: hidden;
+    }
+
+    #date-display .d-label {
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: #C9A96E;
+      margin-bottom: 7px;
+    }
+
+    #date-value {
+      font-size: clamp(0.9rem, 2.5vw, 1.1rem);
+      font-weight: normal;
+      letter-spacing: 0.06em;
+      color: #2C2C2C;
+      line-height: 1.5;
+    }
+
+    #time-value {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      color: #2C2C2C;
+      opacity: 0.55;
+      margin-top: 3px;
+      min-height: 1.2em;
+    }
+
+    #live-badge {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 0.58rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #C9A96E;
+      transition: opacity 0.4s;
+    }
+
+    /* Controls */
+    #controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      margin-top: 22px;
+      visibility: hidden;
+    }
+
+    /* Slider */
+    #time-slider {
+      --fill: 50%;
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 1.5px;
+      background: linear-gradient(
+        to right,
+        #C9A96E var(--fill),
+        rgba(201,169,110,0.22) var(--fill)
+      );
+      border-radius: 1px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    #time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #C9A96E;
+      box-shadow: 0 0 8px rgba(201,169,110,0.5);
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+
+    #time-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    #time-slider::-moz-range-thumb {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #C9A96E;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(201,169,110,0.5);
+    }
+
+    /* Date picker */
+    #date-picker {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      border: 1px solid rgba(201,169,110,0.35);
+      color: #2C2C2C;
+      font-family: Georgia, serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      padding: 5px 8px;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #date-picker:focus {
+      border-color: rgba(201,169,110,0.7);
+    }
+
+    /* Hint */
+    #hint {
+      margin-top: 12px;
+      font-size: 0.58rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #2C2C2C;
+      opacity: 0.3;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="venus-wrap">
+    <h1 id="venus-title">The Venus Rose</h1>
+
+    <p id="loading-msg">Calculating positions&hellip;</p>
+    <canvas id="venus-canvas" style="display:none"></canvas>
+
+    <div id="date-display">
+      <div class="d-label">Venus Position</div>
+      <div id="date-value"></div>
+      <div id="time-value"></div>
+      <div id="live-badge">&#9679;&nbsp;live</div>
+    </div>
+
+    <div id="controls">
+      <input type="range" id="time-slider" min="0" max="1000" value="500" step="1">
+      <input type="date" id="date-picker">
+    </div>
+
+    <p id="hint">Drag Venus &middot; use the slider &middot; double-click slider to return to live</p>
+  </div>
+
+  <script
+    src="https://unpkg.com/astronomy-engine@2.1.19/astronomy.browser.min.js"
+    onerror="document.getElementById('loading-msg').textContent='Could not load astronomy data. Please check your connection and refresh.'">
+  </script>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // ─── Constants ────────────────────────────────────────────────────────────
+    var PATTERN_RADIUS_AU = 1.85;   // max Venus-Earth geocentric distance + margin
+    var CANVAS_PADDING_LP = 26;     // logical-pixel padding inside canvas edge
+    var FADE_FRACTION     = 0.12;   // fade in/out over 12% of visible points each end
+    var WINDOW_HALF_YEARS = 4;      // render ±4 years around currentDate
+    var MS_PER_DAY        = 86400000;
+    var MS_PER_YEAR       = 365.25 * MS_PER_DAY;
+    var PRECOMPUTE_START  = new Date('2000-01-01T12:00:00Z');
+    var PRECOMPUTE_END    = new Date('2060-01-01T12:00:00Z');
+    var HIT_RADIUS_PX     = 22;     // logical-pixel hit target radius on Venus dot
+
+    // ─── State ────────────────────────────────────────────────────────────────
+    var S = {
+      allPoints:        [],    // { ms, x, y } for every computed day
+      visiblePts:       [],    // cached slice used by drag & offscreen
+      offscreen:        null,  // HTMLCanvasElement (cached background)
+      offscreenDate:    null,  // Date when offscreen was last built
+      currentDate:      new Date(),
+      todayAtLoad:      new Date(),
+      isLive:           true,
+      isDragging:       false,
+      isHoveringVenus:  false,
+      lastVenusPos:     null,  // {px, py} in physical pixels — updated each render frame
+      dragIdx:          0,     // index in visiblePts of the currently dragged position
+      dragVelocity:     0,     // smoothed idx change per mouse event (for predictive search)
+      pulsePhase:       0,
+      lastLiveSync:     0,
+      animId:           null,
+      resizeTimer:      null,
+      // canvas geometry (physical pixels)
+      cx: 0, cy: 0, scale: 1, dpr: 1, physW: 0, physH: 0
+    };
+
+    // ─── Projection ───────────────────────────────────────────────────────────
+    function proj(x, y) {
+      return { px: S.cx + x * S.scale, py: S.cy - y * S.scale };
+    }
+
+    // ─── Mouse / touch → physical canvas coords ───────────────────────────────
+    function getPhysPos(clientX, clientY) {
+      var canvas = document.getElementById('venus-canvas');
+      var rect   = canvas.getBoundingClientRect();
+      return {
+        x: (clientX - rect.left) * S.dpr,
+        y: (clientY - rect.top)  * S.dpr
+      };
+    }
+
+    // ─── Nearest pre-computed curve point to a physical-pixel position ─────────
+    function nearestCurvePoint(physX, physY) {
+      var pts = S.visiblePts;
+      var minD2 = Infinity, bestIdx = 0;
+      for (var i = 0; i < pts.length; i++) {
+        var p  = proj(pts[i].x, pts[i].y);
+        var dx = physX - p.px, dy = physY - p.py;
+        var d2 = dx * dx + dy * dy;
+        if (d2 < minD2) { minD2 = d2; bestIdx = i; }
+      }
+      return bestIdx;
+    }
+
+    // ─── Apply a dragged position → update date + all UI ─────────────────────
+    // Uses velocity-predicted constrained search: only searches near the
+    // extrapolated next position, preventing jumps across curve crossings.
+    function applyDragPos(physX, physY) {
+      var pts = S.visiblePts, n = pts.length;
+      if (!n) return;
+
+      // Predict where the index will be based on current velocity,
+      // then search ±halfWin indices around that prediction.
+      var MARGIN  = 45;
+      var halfWin = Math.max(MARGIN, Math.round(Math.abs(S.dragVelocity) * 1.5 + MARGIN));
+      var center  = Math.min(n - 1, Math.max(0, Math.round(S.dragIdx + S.dragVelocity)));
+      var lo      = Math.max(0, center - halfWin);
+      var hi      = Math.min(n - 1, center + halfWin);
+
+      var minD2 = Infinity, bestIdx = S.dragIdx;
+      for (var i = lo; i <= hi; i++) {
+        var p  = proj(pts[i].x, pts[i].y);
+        var dx = physX - p.px, dy = physY - p.py;
+        var d2 = dx * dx + dy * dy;
+        if (d2 < minD2) { minD2 = d2; bestIdx = i; }
+      }
+
+      // Exponential moving average on velocity — smooths direction changes
+      S.dragVelocity = S.dragVelocity * 0.4 + (bestIdx - S.dragIdx) * 0.6;
+      S.dragIdx      = bestIdx;
+
+      var pt = pts[bestIdx];
+      S.currentDate = new Date(pt.ms);
+      S.isLive      = false;
+      updateDateDisplay(S.currentDate);
+      syncSlider(S.currentDate);
+      syncPicker(S.currentDate);
+      setSliderFill(dateToSliderVal(S.currentDate));
+    }
+
+    // ─── Hit-test: is a physical point within the Venus dot? ─────────────────
+    function isNearVenus(physX, physY) {
+      if (!S.lastVenusPos) return false;
+      var dx = physX - S.lastVenusPos.px;
+      var dy = physY - S.lastVenusPos.py;
+      var r  = HIT_RADIUS_PX * S.dpr;
+      return dx * dx + dy * dy <= r * r;
+    }
+
+    // ─── Pre-computation ──────────────────────────────────────────────────────
+    function precompute() {
+      var pts = [];
+      var ms  = PRECOMPUTE_START.getTime();
+      var end = PRECOMPUTE_END.getTime();
+      while (ms <= end) {
+        var d = new Date(ms);
+        var v = Astronomy.GeoVector(Astronomy.Body.Venus, d, false);
+        pts.push({ ms: ms, x: v.x, y: v.y });
+        ms += MS_PER_DAY;
+      }
+      S.allPoints = pts;
+    }
+
+    // ─── Visible window (rolling ±4 years) ───────────────────────────────────
+    function visiblePoints(centerDate) {
+      var cMs   = centerDate.getTime();
+      var halfMs = WINDOW_HALF_YEARS * MS_PER_YEAR;
+      var s = cMs - halfMs, e = cMs + halfMs;
+      return S.allPoints.filter(function (p) { return p.ms >= s && p.ms <= e; });
+    }
+
+    // ─── Build offscreen canvas (background) ─────────────────────────────────
+    function buildOffscreen() {
+      var W  = S.physW, H = S.physH;
+      var oc = document.createElement('canvas');
+      oc.width = W; oc.height = H;
+      var ctx = oc.getContext('2d');
+      var dpr = S.dpr;
+
+      // Cache visible points for drag interaction
+      S.visiblePts = visiblePoints(S.currentDate);
+      var pts = S.visiblePts;
+      var n   = pts.length;
+
+      if (n > 1) {
+        var fade = Math.floor(n * FADE_FRACTION);
+
+        // Fade-IN zone
+        for (var i = 0; i < fade; i++) {
+          var alpha = (i / fade) * 0.55;
+          var p1 = proj(pts[i].x, pts[i].y);
+          var p2 = proj(pts[i + 1].x, pts[i + 1].y);
+          ctx.beginPath();
+          ctx.moveTo(p1.px, p1.py);
+          ctx.lineTo(p2.px, p2.py);
+          ctx.strokeStyle = 'rgba(201,169,110,' + alpha + ')';
+          ctx.lineWidth = 1.2 * dpr;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+
+        // Full-opacity middle: single path
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(201,169,110,0.55)';
+        ctx.lineWidth   = 1.2 * dpr;
+        ctx.lineJoin    = 'round';
+        var pm = proj(pts[fade].x, pts[fade].y);
+        ctx.moveTo(pm.px, pm.py);
+        for (var j = fade + 1; j < n - fade; j++) {
+          var pj = proj(pts[j].x, pts[j].y);
+          ctx.lineTo(pj.px, pj.py);
+        }
+        ctx.stroke();
+
+        // Fade-OUT zone
+        for (var k = n - fade - 1; k < n - 1; k++) {
+          var aOut = ((n - 1 - k) / fade) * 0.55;
+          var q1 = proj(pts[k].x, pts[k].y);
+          var q2 = proj(pts[k + 1].x, pts[k + 1].y);
+          ctx.beginPath();
+          ctx.moveTo(q1.px, q1.py);
+          ctx.lineTo(q2.px, q2.py);
+          ctx.strokeStyle = 'rgba(201,169,110,' + aOut + ')';
+          ctx.lineWidth = 1.2 * dpr;
+          ctx.lineCap = 'round';
+          ctx.stroke();
+        }
+      }
+
+      // Faint reference circles
+      [0.5, 1.0, 1.5].forEach(function (r) {
+        ctx.beginPath();
+        ctx.arc(S.cx, S.cy, r * S.scale, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(201,169,110,0.07)';
+        ctx.lineWidth = 1 * dpr;
+        ctx.setLineDash([3 * dpr, 7 * dpr]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      // Earth at center
+      ctx.beginPath();
+      ctx.arc(S.cx, S.cy, 3.5 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = '#3A3630';
+      ctx.fill();
+
+      S.offscreen    = oc;
+      S.offscreenDate = new Date(S.currentDate.getTime());
+    }
+
+    // ─── Animation loop ───────────────────────────────────────────────────────
+    function render(ts) {
+      S.animId = requestAnimationFrame(render);
+
+      // Pulse phase (independent of date)
+      S.pulsePhase = (S.pulsePhase + 0.006) % 1;
+
+      // Live clock sync (at most once per 60 s, skipped while dragging)
+      if (S.isLive && !S.isDragging && ts - S.lastLiveSync > 60000) {
+        S.currentDate  = new Date();
+        S.lastLiveSync = ts;
+        updateDateDisplay(S.currentDate);
+        syncSlider(S.currentDate);
+        syncPicker(S.currentDate);
+      }
+
+      // Rebuild offscreen if window drifted > 30 days
+      if (S.offscreenDate &&
+          Math.abs(S.currentDate - S.offscreenDate) > 30 * MS_PER_DAY) {
+        buildOffscreen();
+      }
+
+      var canvas = document.getElementById('venus-canvas');
+      var ctx    = canvas.getContext('2d');
+      ctx.clearRect(0, 0, S.physW, S.physH);
+      if (S.offscreen) ctx.drawImage(S.offscreen, 0, 0);
+
+      // Venus geocentric position
+      var v    = Astronomy.GeoVector(Astronomy.Body.Venus, S.currentDate, false);
+      var vp   = proj(v.x, v.y);
+      var dpr  = S.dpr;
+      var sine = Math.sin(S.pulsePhase * Math.PI * 2);
+
+      // Store for hit-testing in mouse/touch handlers
+      S.lastVenusPos = { px: vp.px, py: vp.py };
+
+      var interacting = S.isHoveringVenus || S.isDragging;
+
+      // ── Outer glow (pulses; brightens on hover/drag) ──
+      var glowR = (interacting ? 11 + 4 * sine : 8 + 5 * sine) * dpr;
+      var glowA = interacting ? 0.22 + 0.08 * sine : 0.10 + 0.07 * sine;
+      var grd   = ctx.createRadialGradient(vp.px, vp.py, 0, vp.px, vp.py, glowR);
+      grd.addColorStop(0, 'rgba(201,169,110,' + (glowA * 3) + ')');
+      grd.addColorStop(1, 'rgba(201,169,110,0)');
+      ctx.beginPath();
+      ctx.arc(vp.px, vp.py, glowR, 0, Math.PI * 2);
+      ctx.fillStyle = grd;
+      ctx.fill();
+
+      // ── Interaction ring (visible on hover/drag) ──
+      if (interacting) {
+        var ringR = (7 + 3 * Math.abs(sine)) * dpr;
+        ctx.beginPath();
+        ctx.arc(vp.px, vp.py, ringR, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(201,169,110,' + (S.isDragging ? 0.55 : 0.30) + ')';
+        ctx.lineWidth   = 1 * dpr;
+        ctx.stroke();
+      }
+
+      // ── Inner dot ──
+      var dotR = 4.5 * dpr;
+      var dotG = ctx.createRadialGradient(
+        vp.px - dotR * 0.3, vp.py - dotR * 0.3, 0,
+        vp.px, vp.py, dotR
+      );
+      dotG.addColorStop(0, '#F2DEBB');
+      dotG.addColorStop(1, '#C9A96E');
+      ctx.beginPath();
+      ctx.arc(vp.px, vp.py, dotR, 0, Math.PI * 2);
+      ctx.fillStyle = dotG;
+      ctx.fill();
+    }
+
+    // ─── Canvas resize ────────────────────────────────────────────────────────
+    function resizeCanvas() {
+      var wrap    = document.getElementById('venus-wrap');
+      var dpr     = window.devicePixelRatio || 1;
+      var logical = Math.min(wrap.clientWidth - 40, 600);
+      var phys    = Math.round(logical * dpr);
+      var canvas  = document.getElementById('venus-canvas');
+
+      canvas.width        = phys;
+      canvas.height       = phys;
+      canvas.style.width  = logical + 'px';
+      canvas.style.height = logical + 'px';
+
+      S.dpr   = dpr;
+      S.physW = phys;
+      S.physH = phys;
+      S.cx    = phys / 2;
+      S.cy    = phys / 2;
+      S.scale = (phys / 2 - CANVAS_PADDING_LP * dpr) / PATTERN_RADIUS_AU;
+
+      if (S.allPoints.length > 0) buildOffscreen();
+    }
+
+    // ─── Date display ─────────────────────────────────────────────────────────
+    function updateDateDisplay(date) {
+      var dateStr = date.toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      document.getElementById('date-value').textContent = dateStr;
+
+      if (S.isLive) {
+        document.getElementById('time-value').textContent =
+          date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+      } else {
+        document.getElementById('time-value').textContent = '';
+      }
+
+      document.getElementById('live-badge').style.opacity = S.isLive ? '1' : '0.25';
+    }
+
+    // ─── Slider ───────────────────────────────────────────────────────────────
+    function dateToSliderVal(date) {
+      var halfMs = WINDOW_HALF_YEARS * MS_PER_YEAR;
+      var t = (date.getTime() - S.todayAtLoad.getTime()) / (2 * halfMs) + 0.5;
+      return Math.round(Math.max(0, Math.min(1, t)) * 1000);
+    }
+
+    function sliderValToDate(val) {
+      var halfMs = WINDOW_HALF_YEARS * MS_PER_YEAR;
+      var t = val / 1000 - 0.5;
+      return new Date(S.todayAtLoad.getTime() + t * 2 * halfMs);
+    }
+
+    function syncSlider(date) {
+      var val = dateToSliderVal(date);
+      document.getElementById('time-slider').value = val;
+      setSliderFill(val);
+    }
+
+    function syncPicker(date) {
+      document.getElementById('date-picker').value = date.toISOString().slice(0, 10);
+    }
+
+    function setSliderFill(val) {
+      document.getElementById('time-slider')
+        .style.setProperty('--fill', (val / 10).toFixed(1) + '%');
+    }
+
+    // ─── Event listeners ──────────────────────────────────────────────────────
+    function setupEvents() {
+      var canvas = document.getElementById('venus-canvas');
+      var slider = document.getElementById('time-slider');
+      var picker = document.getElementById('date-picker');
+
+      // ── Slider ──
+      slider.addEventListener('input', function (e) {
+        S.isLive      = false;
+        S.currentDate = sliderValToDate(parseInt(e.target.value, 10));
+        updateDateDisplay(S.currentDate);
+        syncPicker(S.currentDate);
+        setSliderFill(parseInt(e.target.value, 10));
+      });
+
+      slider.addEventListener('dblclick', function () {
+        S.isLive       = true;
+        S.currentDate  = new Date();
+        S.lastLiveSync = performance.now();
+        updateDateDisplay(S.currentDate);
+        syncSlider(S.currentDate);
+        syncPicker(S.currentDate);
+      });
+
+      // ── Date picker ──
+      picker.addEventListener('change', function (e) {
+        if (!e.target.value) return;
+        var d = new Date(e.target.value + 'T12:00:00Z');
+        if (isNaN(d)) return;
+        S.isLive      = false;
+        S.currentDate = d;
+        updateDateDisplay(d);
+        syncSlider(d);
+        buildOffscreen();
+      });
+
+      // ── Drag Venus (mouse) ──
+      canvas.addEventListener('mousedown', function (e) {
+        var pos = getPhysPos(e.clientX, e.clientY);
+        if (isNearVenus(pos.x, pos.y)) {
+          S.isDragging = true;
+          S.isLive     = false;
+          canvas.style.cursor = 'grabbing';
+          // Initialise drag index at Venus's current position in the curve.
+          // Points are daily steps, so index ≈ (currentDate − window start) / 1 day.
+          var startMs    = S.visiblePts.length ? S.visiblePts[0].ms : 0;
+          S.dragIdx      = Math.round((S.currentDate.getTime() - startMs) / MS_PER_DAY);
+          S.dragIdx      = Math.max(0, Math.min(S.visiblePts.length - 1, S.dragIdx));
+          S.dragVelocity = 0;
+          e.preventDefault();
+        }
+      });
+
+      document.addEventListener('mousemove', function (e) {
+        var pos = getPhysPos(e.clientX, e.clientY);
+        if (S.isDragging) {
+          applyDragPos(pos.x, pos.y);
+          return;
+        }
+        // Hover cursor feedback
+        var nowHovering = isNearVenus(pos.x, pos.y);
+        if (nowHovering !== S.isHoveringVenus) {
+          S.isHoveringVenus   = nowHovering;
+          canvas.style.cursor = nowHovering ? 'grab' : 'default';
+        }
+      });
+
+      document.addEventListener('mouseup', function () {
+        if (S.isDragging) {
+          S.isDragging        = false;
+          canvas.style.cursor = S.isHoveringVenus ? 'grab' : 'default';
+        }
+      });
+
+      // ── Drag Venus (touch) ──
+      canvas.addEventListener('touchstart', function (e) {
+        var t   = e.touches[0];
+        var pos = getPhysPos(t.clientX, t.clientY);
+        var dx  = pos.x - (S.lastVenusPos ? S.lastVenusPos.px : -999);
+        var dy  = pos.y - (S.lastVenusPos ? S.lastVenusPos.py : -999);
+        var r   = (HIT_RADIUS_PX + 14) * S.dpr; // larger touch hit target
+        if (dx * dx + dy * dy <= r * r) {
+          S.isDragging = true;
+          S.isLive     = false;
+          var startMs    = S.visiblePts.length ? S.visiblePts[0].ms : 0;
+          S.dragIdx      = Math.round((S.currentDate.getTime() - startMs) / MS_PER_DAY);
+          S.dragIdx      = Math.max(0, Math.min(S.visiblePts.length - 1, S.dragIdx));
+          S.dragVelocity = 0;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      document.addEventListener('touchmove', function (e) {
+        if (!S.isDragging) return;
+        var t   = e.touches[0];
+        var pos = getPhysPos(t.clientX, t.clientY);
+        applyDragPos(pos.x, pos.y);
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('touchend', function () {
+        S.isDragging = false;
+      });
+
+      // ── Resize ──
+      window.addEventListener('resize', function () {
+        clearTimeout(S.resizeTimer);
+        S.resizeTimer = setTimeout(resizeCanvas, 150);
+      });
+    }
+
+    // ─── Bootstrap ────────────────────────────────────────────────────────────
+    function init() {
+      if (typeof Astronomy === 'undefined') return;
+
+      setTimeout(function () {
+        resizeCanvas();
+        precompute();
+        buildOffscreen();
+
+        document.getElementById('loading-msg').style.display  = 'none';
+        var canvas = document.getElementById('venus-canvas');
+        canvas.style.display = 'block';
+        document.getElementById('date-display').style.visibility = 'visible';
+        document.getElementById('controls').style.visibility     = 'visible';
+
+        S.currentDate = new Date();
+        S.todayAtLoad = new Date();
+        updateDateDisplay(S.currentDate);
+        syncSlider(S.currentDate);
+        syncPicker(S.currentDate);
+
+        var picker = document.getElementById('date-picker');
+        picker.min = '1900-01-01';
+        picker.max = '2100-12-31';
+
+        setupEvents();
+
+        S.lastLiveSync = performance.now();
+        requestAnimationFrame(render);
+      }, 60);
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  })();
+  </script>
+</body>
+</html>
