@@ -238,6 +238,12 @@
       lastVenusPos:     null,  // {px, py} in physical pixels — updated each render frame
       dragIdx:          0,     // index in visiblePts of the currently dragged position
       dragVelocity:     0,     // smoothed idx change per mouse event (for predictive search)
+      isTouchDragging:  false, // true when the active drag came from a touch (not mouse)
+      isSwipingScrub:   false, // true when scrubbing time via canvas swipe
+      swipeStartX:      null,  // clientX at swipe start
+      swipeStartIdx:    0,     // dragIdx at swipe start
+      sliderTouchX:     null,  // clientX at slider touch start
+      sliderTouchVal:   0,     // slider value at slider touch start
       pulsePhase:       0,
       lastLiveSync:     0,
       animId:           null,
@@ -293,6 +299,16 @@
         var dx = physX - p.px, dy = physY - p.py;
         var d2 = dx * dx + dy * dy;
         if (d2 < minD2) { minD2 = d2; bestIdx = i; }
+      }
+
+      // On touch, cap how many days Venus can jump per event to avoid overshooting
+      if (S.isTouchDragging) {
+        var MAX_TOUCH_STEP = 12;
+        var rawDelta = bestIdx - S.dragIdx;
+        if (Math.abs(rawDelta) > MAX_TOUCH_STEP) {
+          bestIdx = S.dragIdx + Math.sign(rawDelta) * MAX_TOUCH_STEP;
+          bestIdx = Math.max(0, Math.min(n - 1, bestIdx));
+        }
       }
 
       S.dragVelocity = S.dragVelocity * 0.4 + (bestIdx - S.dragIdx) * 0.6;
@@ -620,7 +636,33 @@
         }
       });
 
-      // ── Drag Venus (touch) ──
+      // ── Slider touch — dampened (0.35× sensitivity vs native) ──
+      slider.addEventListener('touchstart', function (e) {
+        S.sliderTouchX   = e.touches[0].clientX;
+        S.sliderTouchVal = parseInt(slider.value, 10);
+        e.preventDefault();
+      }, { passive: false });
+
+      slider.addEventListener('touchmove', function (e) {
+        if (S.sliderTouchX === null) return;
+        var dx      = e.touches[0].clientX - S.sliderTouchX;
+        var rect    = slider.getBoundingClientRect();
+        var delta   = (dx / rect.width) * 1000 * 0.35;
+        var newVal  = Math.round(Math.max(0, Math.min(1000, S.sliderTouchVal + delta)));
+        slider.value  = newVal;
+        S.isLive      = false;
+        S.currentDate = sliderValToDate(newVal);
+        updateDateDisplay(S.currentDate);
+        syncPicker(S.currentDate);
+        setSliderFill(newVal);
+        e.preventDefault();
+      }, { passive: false });
+
+      slider.addEventListener('touchend', function () {
+        S.sliderTouchX = null;
+      });
+
+      // ── Canvas touch: near Venus → dot drag; anywhere else → swipe-to-scrub ──
       canvas.addEventListener('touchstart', function (e) {
         var t   = e.touches[0];
         var pos = getPhysPos(t.clientX, t.clientY);
@@ -628,26 +670,60 @@
         var dy  = pos.y - (S.lastVenusPos ? S.lastVenusPos.py : -999);
         var r   = (HIT_RADIUS_PX + 14) * S.dpr;
         if (dx * dx + dy * dy <= r * r) {
-          S.isDragging = true;
-          S.isLive     = false;
+          // Near Venus dot — precise curve drag (touch-rate-limited)
+          S.isDragging      = true;
+          S.isTouchDragging = true;
+          S.isLive          = false;
           var startMs    = S.visiblePts.length ? S.visiblePts[0].ms : 0;
           S.dragIdx      = Math.round((S.currentDate.getTime() - startMs) / MS_PER_DAY);
           S.dragIdx      = Math.max(0, Math.min(S.visiblePts.length - 1, S.dragIdx));
           S.dragVelocity = 0;
+        } else {
+          // Anywhere else on canvas — swipe left/right to scrub time
+          S.isSwipingScrub = true;
+          S.swipeStartX    = t.clientX;
+          var startMs      = S.visiblePts.length ? S.visiblePts[0].ms : 0;
+          S.swipeStartIdx  = Math.round((S.currentDate.getTime() - startMs) / MS_PER_DAY);
+          S.swipeStartIdx  = Math.max(0, Math.min(S.visiblePts.length - 1, S.swipeStartIdx));
+          S.isLive         = false;
+        }
+        e.preventDefault();
+      }, { passive: false });
+
+      document.addEventListener('touchmove', function (e) {
+        if (S.isDragging) {
+          var t   = e.touches[0];
+          var pos = getPhysPos(t.clientX, t.clientY);
+          applyDragPos(pos.x, pos.y);
+          e.preventDefault();
+          return;
+        }
+        if (S.isSwipingScrub) {
+          var dx          = e.touches[0].clientX - S.swipeStartX;
+          var canvasLogW  = parseFloat(canvas.style.width) || 420;
+          // full canvas width swipe → 4 years (1461 days); swipe right = forward
+          var daysDelta   = Math.round(dx * (1461 / canvasLogW));
+          var newIdx      = Math.max(0, Math.min(
+            S.visiblePts.length - 1, S.swipeStartIdx + daysDelta
+          ));
+          var pt = S.visiblePts[newIdx];
+          if (pt) {
+            S.dragIdx     = newIdx;
+            S.currentDate = new Date(pt.ms);
+            updateDateDisplay(S.currentDate);
+            syncSlider(S.currentDate);
+            syncPicker(S.currentDate);
+            setSliderFill(dateToSliderVal(S.currentDate));
+          }
           e.preventDefault();
         }
       }, { passive: false });
 
-      document.addEventListener('touchmove', function (e) {
-        if (!S.isDragging) return;
-        var t   = e.touches[0];
-        var pos = getPhysPos(t.clientX, t.clientY);
-        applyDragPos(pos.x, pos.y);
-        e.preventDefault();
-      }, { passive: false });
-
       document.addEventListener('touchend', function () {
-        S.isDragging = false;
+        S.isDragging      = false;
+        S.isTouchDragging = false;
+        S.isSwipingScrub  = false;
+        S.swipeStartX     = null;
       });
 
       // ── Resize ──
